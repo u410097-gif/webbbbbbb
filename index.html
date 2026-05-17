@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Will - 專注行程應用程式</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body { background-color: #e5e7eb; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        #root { width: 100%; max-width: 400px; height: 100vh; max-height: 850px; background: white; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        @media (min-width: 450px) { #root { height: 90vh; border-radius: 40px; border: 8px solid #1f2937; } }
+        
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes flap {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-5px) rotate(5deg); }
+        }
+        .wing-left { animation: flap 2s ease-in-out infinite; transform-origin: right center; }
+        .wing-right { animation: flap 2s ease-in-out infinite reverse; transform-origin: left center; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // =========================================================================
+        // 🎨 背景圖片設定區 (請在這裡換成你的圖片!)
+        // =========================================================================
+        const CUSTOM_BACKGROUNDS = {
+            'splash': 'url("./2.jpg")',    // 第1頁：載入畫面背景
+           // 第2頁：選擇登入/創建背景
+               // 第3頁：社群創建背景
+                   // 第5頁：登入背景
+               // 第6頁：主畫面行程表背景
+            'lock-screen': 'url("./24.jpg")',        // 第24頁：強制鎖屏背景
+            'default': '#ffffff'              // 其他所有頁面的預設背景
+        };
+
+        // --- i18n Dictionary ---
+        const i18n = {
+            zh: {
+                signIn: '登入', create: '創建', facebook: 'FACEBOOK', line: 'LINE', google: 'GOOGLE', discord: 'DISCORD',
+                username: 'Username', password: 'Password', passwordAgain: 'Password again', confirm: 'Confirm',
+                schedule: '行程表', month: '月', day: '日', profile: '個人檔案', pin: 'PIN碼', friends: '朋友', contacts: '聯絡人', language: '語言',
+                intro: '介紹', name: '名稱', region: '地區', grade: '年級', category: '類別', birthday: '生日', yearMonthDay: '西元年/月/日', edit: '編輯', save: '儲存',
+                highSchool: '高中生', juniorHigh: '國中生', myPin: '我的 PIN 碼', addFriend: '新增好友名稱...', add: '加入',
+                friendProfile: '好友檔案', todayUsage: '今日使用總時間', scheduleProgress: '今日行程進度', contactList: '手機聯絡人', callContact: '撥打給',
+                chooseLang: '選擇語言', addScheduleTitle: '設定行程表', scheduleName: '行程名稱', color: '顏色', time: '時間', date: '日期',
+                lockStatus: '專注模式中', totalUsed: '總使用時間', sos: 'SOS', unlock: '解', call110: '110', emergencyContact: '緊急聯絡人', callFriend: '呼叫朋友',
+                chat: '聊天室', send: '發送', callOnly: '僅語音通話', videoCall: '視訊通話', policePrompt: '是否撥打報案專線？', yes: '是', no: '否', testLock: '測試鎖屏'
+            },
+            en: {
+                signIn: 'SIGN IN', create: 'CREATE', facebook: 'FACEBOOK', line: 'LINE', google: 'GOOGLE', discord: 'DISCORD',
+                username: 'Username', password: 'Password', passwordAgain: 'Password again', confirm: 'Confirm',
+                schedule: 'Schedule', month: '/', day: '', profile: 'Profile', pin: 'PIN Code', friends: 'Friends', contacts: 'Contacts', language: 'Language',
+                intro: 'Intro', name: 'Name', region: 'Region', grade: 'Grade', category: 'Category', birthday: 'Birthday', yearMonthDay: 'YYYY/MM/DD', edit: 'Edit', save: 'Save',
+                highSchool: 'High School', juniorHigh: 'Junior High', myPin: 'My PIN', addFriend: 'Add friend name...', add: 'Add',
+                friendProfile: 'Friend Profile', todayUsage: 'Total Usage Time Today', scheduleProgress: 'Schedule Progress', contactList: 'Contacts', callContact: 'Call',
+                chooseLang: 'Select Language', addScheduleTitle: 'Set Schedule', scheduleName: 'Event Name', color: 'Color', time: 'Time', date: 'Date',
+                lockStatus: 'Locked', totalUsed: 'Total Time', sos: 'SOS', unlock: 'Unlock', call110: '911', emergencyContact: 'Emergency Contact', callFriend: 'Call Friend',
+                chat: 'Chat', send: 'Send', callOnly: 'Voice Call', videoCall: 'Video Call', policePrompt: 'Call Emergency Services?', yes: 'Yes', no: 'No', testLock: 'Test Lock'
+            }
+        };
+
+        // --- Icons ---
+        const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+        const IconKey = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>;
+        const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+        const IconPhone = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+        const IconGlobe = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>;
+        const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const IconArrowLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
+
+        function App() {
+            const [view, setView] = useState('splash'); 
+            const [lang, setLang] = useState('zh');
+            const [showSettings, setShowSettings] = useState(false);
+            
+            const [profile, setProfile] = useState({ name: 'Will User', region: 'Taiwan', grade: '1', category: '高中生', birthday: '2008/01/01' });
+            const [friends, setFriends] = useState([{ id: 1, name: 'Alex' }, { id: 2, name: 'Sam' }]);
+            const [schedules, setSchedules] = useState([{ id: 1, title: 'Study', color: '#3b82f6', start: 9, end: 11 }]);
+            
+            const t = (key) => i18n[lang][key] || key;
+
+            const BackBtn = ({ onClick }) => (
+                <button onClick={onClick} className="absolute top-6 left-4 p-2 z-10 bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:bg-white">
+                    <IconArrowLeft />
+                </button>
+            );
+
+            const ViewSplash = () => (
+                <div className="flex flex-col items-center justify-center h-full bg-transparent cursor-pointer" onClick={() => setView('auth-choice')}>
+                    <div className="relative">
+                    </div>
+                </div>
+            );
+
+            const ViewAuthChoice = () => (
+                <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-8 px-8">
+                   <img src="./WILL.png" className="w-32 h-auto mb-8" alt="Logo" />
+                    <button onClick={() => setView('sign-in')} className="w-full py-4 text-2xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-3xl tracking-widest shadow-lg">{t('signIn')}</button>
+                    <button onClick={() => setView('create-social')} className="w-full py-4 text-2xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-3xl tracking-widest shadow-lg">{t('create')}</button>
+                </div>
+            );
+
+            const ViewCreateSocial = () => (
+                <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-6 px-8 relative">
+                    <BackBtn onClick={() => setView('auth-choice')} />
+                    <div className="w-full py-4 mb-4 text-3xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-2xl text-center shadow-md">{t('create')}</div>
+                    {['facebook', 'line', 'google', 'discord'].map(social => (
+                        <button key={social} onClick={() => setView('create-account')} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
+                            {t(social)}
+                        </button>
+                    ))}
+                </div>
+            );
+
+            const ViewAuthForm = ({ isCreate }) => (
+                <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-6 px-8 relative">
+                    <BackBtn onClick={() => setView(isCreate ? 'create-social' : 'auth-choice')} />
+                    <div className="w-full py-4 mb-4 text-3xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-2xl text-center shadow-md">{isCreate ? t('create') : t('signIn')}</div>
+                    
+                    <div className="w-full bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-sm space-y-4">
+                        <input type="text" placeholder={t('username')} className="w-full py-3 bg-transparent border-b-2 border-gray-400 focus:outline-none focus:border-blue-900 text-xl" />
+                        <input type="password" placeholder={t('password')} className="w-full py-3 bg-transparent border-b-2 border-gray-400 focus:outline-none focus:border-blue-900 text-xl" />
+                        {isCreate && <input type="password" placeholder={t('passwordAgain')} className="w-full py-3 bg-transparent border-b-2 border-gray-400 focus:outline-none focus:border-blue-900 text-xl" />}
+                    </div>
+                    
+                    <button onClick={() => setView('home')} className="w-full py-4 mt-4 text-2xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-3xl tracking-widest shadow-lg">{t('confirm')}</button>
+                </div>
+            );
+
+            const ViewHome = () => {
+                const date = new Date();
+                const hours = Array.from({length: 24}, (_, i) => i + 1);
+
+                return (
+                    <div className="h-full flex flex-col bg-transparent relative">
+                        <div className="flex justify-between items-center p-6 pb-2 bg-white/60 backdrop-blur-md border-b border-white/50 shadow-sm z-10">
+                            <div>
+                                <h1 className="text-2xl font-bold text-blue-900 drop-shadow-sm">{t('schedule')}</h1>
+                                <p className="text-xl text-gray-800 font-medium drop-shadow-sm">{date.getMonth()+1}{t('month')}{date.getDate()}{t('day')}</p>
+                            </div>
+                           <div className="w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full flex justify-center items-center cursor-pointer z-20 shadow-sm border-2 border-gray-300 hover:bg-white text-gray-800 transition-colors" onClick={() => setShowSettings(!showSettings)}>
+                           <IconSettings />
+                            </div>
+                        </div>
+
+                        {showSettings && (
+                            <div className="absolute top-24 right-6 w-48 bg-white/95 backdrop-blur-xl border-2 border-white rounded-xl shadow-xl z-30 overflow-hidden flex flex-col">
+                                <button onClick={() => {setShowSettings(false); setView('profile');}} className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 hover:bg-blue-50"><IconUser/> {t('profile')}</button>
+                                <button onClick={() => {setShowSettings(false); setView('pin');}} className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 hover:bg-blue-50"><IconKey/> {t('pin')}</button>
+                                <button onClick={() => {setShowSettings(false); setView('friends');}} className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 hover:bg-blue-50"><IconUsers/> {t('friends')}</button>
+                                <button onClick={() => {setShowSettings(false); setView('contacts');}} className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 hover:bg-blue-50"><IconPhone/> {t('contacts')}</button>
+                                <button onClick={() => {setShowSettings(false); setView('language');}} className="px-4 py-3 flex items-center gap-3 hover:bg-blue-50"><IconGlobe/> {t('language')}</button>
+                            </div>
+                        )}
+                        {showSettings && <div className="absolute inset-0 bg-black/10 backdrop-blur-sm z-20" onClick={() => setShowSettings(false)}></div>}
+
+                        <div className="flex-1 overflow-y-auto hide-scrollbar p-4 relative z-0" style={{scrollBehavior: 'smooth'}}>
+                            <div className="bg-white/40 backdrop-blur-md rounded-2xl p-2 shadow-inner min-h-full">
+                                {hours.map(h => (
+                                    <div key={h} className="flex min-h-[60px] border-b border-gray-400/30 relative">
+                                        <div className="w-16 text-gray-800 font-bold py-2">{h} {h<12?'AM':'PM'}</div>
+                                        <div className="flex-1 relative">
+                                            {schedules.filter(s => s.start === h).map(s => (
+                                                <div key={s.id} className="absolute left-2 right-2 top-2 p-2 rounded-lg text-white font-bold shadow-md" style={{backgroundColor: s.color, height: `${(s.end - s.start)*60 - 4}px`, minHeight: '40px', zIndex: 10}}>
+                                                    {s.title}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="absolute bottom-6 w-full flex justify-between px-6 z-10 pointer-events-none">
+                             <button onClick={() => setView('lock-screen')} className="pointer-events-auto bg-gray-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg hover:bg-gray-900 text-sm">
+                                {t('testLock')}
+                            </button>
+                            <button onClick={() => setView('add-schedule')} className="pointer-events-auto w-16 h-16 bg-white/90 backdrop-blur-sm border-4 border-gray-800 rotate-45 flex justify-center items-center shadow-xl">
+                                <div className="-rotate-45 text-blue-600 text-4xl font-bold">+</div>
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const ViewProfile = () => {
+                const [isEditing, setIsEditing] = useState(false);
+                const [tempProfile, setTempProfile] = useState(profile);
+                const handleSave = () => { setProfile(tempProfile); setIsEditing(false); };
+
+                return (
+                    <div className="h-full bg-transparent relative flex flex-col p-6">
+                        <BackBtn onClick={() => setView('home')} />
+                        <h2 className="text-3xl font-bold mt-16 mb-6 text-center text-gray-800 drop-shadow-sm">{t('profile')}</h2>
+                        
+                        <div className="flex-1 space-y-4 text-xl bg-white/60 backdrop-blur-md p-6 rounded-3xl shadow-sm">
+                            <div className="border-b border-gray-400/50 pb-2">
+                                <span className="text-gray-600 block text-sm font-bold">{t('name')}</span>
+                                {isEditing ? <input className="w-full bg-transparent outline-none text-blue-900 font-bold" value={tempProfile.name} onChange={e=>setTempProfile({...tempProfile, name: e.target.value})} /> : <span className="font-bold">{profile.name}</span>}
+                            </div>
+                            <div className="border-b border-gray-400/50 pb-2">
+                                <span className="text-gray-600 block text-sm font-bold">{t('region')}</span>
+                                {isEditing ? <input className="w-full bg-transparent outline-none text-blue-900 font-bold" value={tempProfile.region} onChange={e=>setTempProfile({...tempProfile, region: e.target.value})} /> : <span className="font-bold">{profile.region}</span>}
+                            </div>
+                            <div className="border-b border-gray-400/50 pb-2">
+                                <span className="text-gray-600 block text-sm font-bold">{t('category')}</span>
+                                {isEditing ? (
+                                    <select className="w-full outline-none text-blue-900 bg-transparent font-bold" value={tempProfile.category} onChange={e=>setTempProfile({...tempProfile, category: e.target.value})}>
+                                        <option value={t('highSchool')}>{t('highSchool')}</option>
+                                        <option value={t('juniorHigh')}>{t('juniorHigh')}</option>
+                                    </select>
+                                ) : <span className="font-bold">{profile.category}</span>}
+                            </div>
+                            <div className="border-b border-gray-400/50 pb-2">
+                                <span className="text-gray-600 block text-sm font-bold">{t('birthday')}</span>
+                                {isEditing ? <input className="w-full bg-transparent outline-none text-blue-900 font-bold" type="text" placeholder={t('yearMonthDay')} value={tempProfile.birthday} onChange={e=>setTempProfile({...tempProfile, birthday: e.target.value})} /> : <span className="font-bold">{profile.birthday}</span>}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-4 mt-6">
+                            {!isEditing ? (
+                                <button onClick={() => setIsEditing(true)} className="px-6 py-3 bg-white/80 backdrop-blur-sm rounded-xl font-bold shadow-md text-gray-800 hover:bg-white">{t('edit')}</button>
+                            ) : (
+                                <button onClick={handleSave} className="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-xl font-bold shadow-md">{t('save')}</button>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const ViewLockScreen = () => {
+                const now = new Date();
+                return (
+                    <div className="h-full bg-black/40 backdrop-blur-sm text-white relative flex flex-col items-center justify-center">
+                        <div className="absolute top-10 text-white/80 text-xl font-bold drop-shadow-md">{now.getMonth()+1}/{now.getDate()}</div>
+                        <div className="text-8xl font-mono mb-4 drop-shadow-lg font-bold">{now.getHours()}:{now.getMinutes().toString().padStart(2, '0')}</div>
+                        <div className="bg-red-500/80 backdrop-blur-md text-white px-6 py-2 rounded-full font-bold mb-12 flex items-center gap-2 shadow-lg border border-red-400">
+                            <IconKey/> {t('lockStatus')}
+                        </div>
+                        <div className="text-center mb-16 bg-black/30 backdrop-blur-md p-6 rounded-3xl">
+                            <div className="text-sm text-gray-300 font-bold">{t('totalUsed')}</div>
+                            <div className="text-4xl font-mono font-bold">1h 45m</div>
+                        </div>
+
+                        <button onClick={() => setView('sos-menu')} className="w-24 h-24 rounded-full bg-red-600 border-4 border-white/50 text-2xl font-bold shadow-[0_0_30px_rgba(220,38,38,0.8)] animate-pulse">
+                            {t('sos')}
+                        </button>
+                    </div>
+                );
+            };
+
+            const ViewSosMenu = () => (
+                <div className="h-full bg-black/60 backdrop-blur-md text-white relative flex flex-col p-6 items-center justify-center space-y-6">
+                    <button onClick={() => setView('lock-screen')} className="absolute top-6 left-6 p-2 bg-white/20 rounded-full hover:bg-white/40"><IconArrowLeft stroke="white"/></button>
+                    
+                    <button onClick={() => setView('home')} className="w-full py-5 text-xl font-bold bg-green-500/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg border border-green-400/50">
+                        <IconKey /> {t('unlock')} (模擬好友幫解鎖)
+                    </button>
+                    
+                    <button onClick={() => setView('call-110')} className="w-full py-5 text-xl font-bold bg-red-600/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg border border-red-500/50">
+                        <IconPhone /> {t('call110')}
+                    </button>
+                    
+                    <button onClick={() => setView('emergency-contacts')} className="w-full py-5 text-xl font-bold bg-orange-500/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg border border-orange-400/50">
+                        <IconUsers /> {t('emergencyContact')}
+                    </button>
+                    
+                    <button onClick={() => setView('chat-friend')} className="w-full py-5 text-xl font-bold bg-blue-600/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg border border-blue-500/50">
+                        <IconPhone /> {t('callFriend')}
+                    </button>
+                </div>
+            );
+
+            const GenericViewWrapper = ({ title, children, onBack }) => (
+                <div className="h-full bg-transparent relative flex flex-col p-6 pt-20">
+                    <BackBtn onClick={onBack} />
+                    <h2 className="text-3xl font-bold mb-6 text-gray-800 drop-shadow-sm text-center">{title}</h2>
+                    <div className="flex-1 bg-white/60 backdrop-blur-md rounded-3xl p-6 shadow-sm overflow-y-auto">
+                        {children}
+                    </div>
+                </div>
+            );
+
+            const ViewPin = () => (
+                <GenericViewWrapper title={t('myPin')} onBack={() => setView('home')}>
+                    <div className="flex flex-col items-center">
+                        <div className="text-5xl tracking-[0.5em] font-mono text-blue-900 bg-white/80 py-6 px-8 rounded-xl mb-12 shadow-inner font-bold border">127968</div>
+                        <div className="w-full flex border-2 border-blue-900 rounded-xl overflow-hidden bg-white/80">
+                            <input type="text" placeholder={t('addFriend')} className="flex-1 px-4 py-3 outline-none bg-transparent font-bold" />
+                            <button onClick={() => setView('friends')} className="bg-blue-900/90 text-white px-6 font-bold">{t('add')}</button>
+                        </div>
+                    </div>
+                </GenericViewWrapper>
+            );
+
+            const ViewFriends = () => (
+                <GenericViewWrapper title={t('friends')} onBack={() => setView('home')}>
+                    <div className="space-y-4">
+                        {friends.map(f => (
+                            <div key={f.id} onClick={() => setView('home')} className="flex items-center p-4 border border-white/50 bg-white/50 rounded-xl gap-4 cursor-pointer shadow-sm hover:bg-white/80 font-bold text-gray-800">
+                                <div className="w-12 h-12 bg-blue-200/80 rounded-full flex justify-center items-center text-blue-900 text-xl">{f.name[0]}</div>
+                                <span className="text-xl">{f.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </GenericViewWrapper>
+            );
+
+            const ViewLanguage = () => (
+                <GenericViewWrapper title={t('chooseLang')} onBack={() => setView('home')}>
+                    <button onClick={() => {setLang('zh'); setView('home');}} className={`w-full py-4 text-xl font-bold border-2 rounded-2xl mb-4 bg-white/80 shadow-sm ${lang==='zh'?'border-blue-900 text-blue-900':'border-transparent text-gray-700'}`}>中文 (繁體)</button>
+                    <button onClick={() => {setLang('en'); setView('home');}} className={`w-full py-4 text-xl font-bold border-2 rounded-2xl bg-white/80 shadow-sm ${lang==='en'?'border-blue-900 text-blue-900':'border-transparent text-gray-700'}`}>English</button>
+                </GenericViewWrapper>
+            );
+
+            const ViewAddSchedule = () => (
+                <GenericViewWrapper title={t('addScheduleTitle')} onBack={() => setView('home')}>
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-gray-800 font-bold text-sm mb-2">{t('scheduleName')}</label>
+                            <input type="text" className="w-full bg-white/50 border-b-2 border-gray-400 py-2 text-xl outline-none font-bold" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-800 font-bold text-sm mb-2">{t('time')} (AM/PM)</label>
+                            <select className="w-full bg-white/50 border-b-2 border-gray-400 py-2 text-xl outline-none font-bold">
+                                {Array.from({length:24}, (_,i)=>i+1).map(h=><option key={h} value={h}>{h}:00</option>)}
+                            </select>
+                        </div>
+                        <button onClick={() => setView('home')} className="w-full py-4 mt-8 text-2xl font-bold text-white bg-blue-900/90 rounded-3xl shadow-lg">{t('save')}</button>
+                    </div>
+                </GenericViewWrapper>
+            );
+
+            const renderView = () => {
+                switch(view) {
+                    case 'splash': return <ViewSplash />;
+                    case 'auth-choice': return <ViewAuthChoice />;
+                    case 'create-social': return <ViewCreateSocial />;
+                    case 'create-account': return <ViewAuthForm isCreate={true} />;
+                    case 'sign-in': return <ViewAuthForm isCreate={false} />;
+                    case 'home': return <ViewHome />;
+                    case 'profile': return <ViewProfile />;
+                    case 'pin': return <ViewPin />;
+                    case 'friends': return <ViewFriends />;
+                    case 'language': return <ViewLanguage />;
+                    case 'add-schedule': return <ViewAddSchedule />;
+                    case 'lock-screen': return <ViewLockScreen />;
+                    case 'sos-menu': return <ViewSosMenu />;
+                    default: return <ViewHome />;
+                }
+            };
+
+            const currentBg = CUSTOM_BACKGROUNDS[view] || CUSTOM_BACKGROUNDS['default'];
+
+            return (
+                <div className="w-full h-full relative transition-all duration-700 ease-in-out" style={{ background: currentBg, backgroundSize: '100% 100%', backgroundPosition: 'center' }}>
+                    <div className="w-full h-full relative bg-white/10 overflow-hidden">
+                        {renderView()}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
