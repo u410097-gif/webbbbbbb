@@ -1,5 +1,40 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyDIzxHhLYD_4bArGPYwQvtnSrLe_X2ggKM",
+    authDomain: "weeee-e9424.firebaseapp.com",
+    projectId: "weeee-e9424",
+    storageBucket: "weeee-e9424.firebasestorage.app",
+    messagingSenderId: "804357638302",
+    appId: "1:804357638302:web:e3bfbb83429dd4c4b9d38f",
+    measurementId: "G-YNC41NH2PS"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const provider = new GoogleAuthProvider();
+
+        // 建立一個登入函式，並把它綁定到 window 上，這樣下面的 React 才能呼叫它
+        window.signInWithGoogle = async () => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                return result.user; // 登入成功，回傳使用者的 Google 資料 (名字、大頭貼等)
+            } catch (error) {
+                console.error("Google 登入失敗", error);
+                throw error;
+            }
+        };
+</script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -82,6 +117,25 @@
 
         function App() {
             const [view, setView] = useState('splash'); 
+            // 👇 處理 Google 登入的 React 函式
+    const handleGoogleLogin = async () => {
+        try {
+            // 呼叫我們剛剛在上面綁定的 Firebase 登入功能
+            const user = await window.signInWithGoogle();
+            
+            // 登入成功！
+            alert(`歡迎回來，${user.displayName}！`);
+            
+            // 你可以把 Google 的大頭貼存進我們之前做的 userAvatar 變數裡
+            // setUserAvatar(user.photoURL); 
+            
+            // 登入成功後，直接跳轉到首頁
+            setView('home'); 
+            
+        } catch (error) {
+            alert("登入失敗或被取消，請再試一次！");
+        }
+    };
             const [lang, setLang] = useState('zh');
             const [showSettings, setShowSettings] = useState(false);
             
@@ -112,18 +166,33 @@
                 </div>
             );
 
-            const ViewCreateSocial = () => (
-                <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-6 px-8 relative">
-                    <BackBtn onClick={() => setView('auth-choice')} />
-                    <div className="w-full py-4 mb-4 text-3xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-2xl text-center shadow-md">{t('create')}</div>
-                    {['facebook', 'line', 'google', 'discord'].map(social => (
-                        <button key={social} onClick={() => setView('create-account')} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
-                            {t(social)}
-                        </button>
-                    ))}
-                </div>
-            );
+const ViewCreateSocial = () => (
+    <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-6 px-8 relative">
+        <BackBtn onClick={() => setView('auth-choice')} />
+        <div className="w-full py-4 mb-4 text-3xl font-bold text-white bg-blue-900/90 backdrop-blur-sm rounded-2xl text-center shadow-md">{t('create')}</div>
 
+        {/* --- Facebook 按鈕 (維持原本的換頁功能) --- */}
+        <button onClick={() => setView('create-account')} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
+            {t('facebook')}
+        </button>
+
+        {/* --- Line 按鈕 (維持原本的換頁功能) --- */}
+        <button onClick={() => setView('create-account')} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
+            {t('line')}
+        </button>
+
+        {/* 👇 這裡就是第四步！把 Google 獨立出來，綁定 handleGoogleLogin 👇 */}
+        <button onClick={handleGoogleLogin} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
+            <span className="text-red-500 font-black">G</span> {t('google')}
+        </button>
+        {/* 👆 第四步結束 👆 */}
+
+        {/* --- Discord 按鈕 (維持原本的換頁功能) --- */}
+        <button onClick={() => setView('create-account')} className="w-full py-3 text-xl font-bold text-gray-800 bg-white/70 backdrop-blur-md border-4 border-white/50 rounded-2xl flex items-center justify-center gap-2 shadow-sm hover:bg-white/90">
+            {t('discord')}
+        </button>
+    </div>
+);
             const ViewAuthForm = ({ isCreate }) => (
                 <div className="flex flex-col items-center justify-center h-full bg-transparent space-y-6 px-8 relative">
                     <BackBtn onClick={() => setView(isCreate ? 'create-social' : 'auth-choice')} />
